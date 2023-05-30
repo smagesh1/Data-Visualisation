@@ -1,0 +1,22 @@
+3	PART 3: Implementation
+The data was processed for creating the visualisation in the following steps:
+
+1. Load the data from the relevant CSV files (constructor_results.csv, constructor_standings.csv, races.csv, constructors.csv).
+2. Parse the data and filter out relevant columns.
+3. Merge the data to get the constructor name for each constructor ID in the constructor_standings.csv file.
+4. Group the data by constructor and year.
+5. Calculate the total points earned by each constructor in each season.
+6. Create scales and define the line generator.
+7. Draw the x-axis and y-axis on the chart.
+8. Draw a line for each constructor showing their total points earned in each season.
+9. Add a legend to the chart to show the name of each constructor and its corresponding color.
+
+To create the "Constructors' Performance over Time" visualization, the following columns from each dataset were used: constructor_results.csv: constructorId, raceId, points
+constructor_standings.csv: constructorId, raceId, points, position
+races.csv: raceId, year
+constructors.csv: constructorId, name
+
+In constructor_results.csv, the constructorId column is used to link each result to the corresponding constructor in constructors.csv. The raceId and points columns are used to calculate the total points earned by each constructor in each race.
+In constructor_standings.csv, the constructorId column is used to link each standing to the corresponding constructor in constructors.csv. The raceId, points, and position columns are used to calculate the total points earned and final position of each constructor in each season.
+In races.csv, the raceId column is used to link each race to the corresponding season. The year column is used to group the data by year and to create the x-axis of the chart.
+In constructors.csv, the constructorId column is used to link each constructor to the corresponding results and standings in the other datasets. The name column is used to display the name of each constructor in the legend.

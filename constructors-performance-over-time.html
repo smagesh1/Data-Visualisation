@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <!-- Setting the title of the webpage to "Constructors' Performance
+    over Time". -->
+    <title>Constructors' Performance Over Time</title>
+
+    <!-- Importing the D3.js library -->
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+
+    <!-- Defining CSS styles -->
+    <style>
+        /* Defining the style for the x and y axis lines in a chart or graph. */
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: black;
+            shape-rendering: crispEdges;
+        }
+
+        /* Defining the CSS style for the text elements within an HTML element. */
+        .axis text {
+            font-family: sans-serif;
+            font-size: 11px;
+        }
+
+        /* Defining the CSS styles for a tooltip element.  */
+        .tooltip {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.8);
+            pointer-events: none;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-family: sans-serif;
+            font-size: 12px;
+            display: none;
+        }
+
+
+        .legend {
+            font-family: sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+         .hidden {
+            display: none;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Creating a heading "Constructors' Performance Over Time". -->
+    <h1>Constructors' Performance Over Time</h1>
+
+    <!-- Creating an empty "tooltip" and an id of "tooltip".  -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // Reading data from csv files
+        Promise.all([
+            d3.csv('constructor_results.csv'),
+            d3.csv('constructor_standings.csv'),
+            d3.csv('races.csv'),
+            d3.csv('constructors.csv')
+        ]).then(([constructorResults, constructorStandings, races, constructors]) => {
+
+            // Adding the date to the standing objects
+            constructorStandings.forEach(standing => {
+                const race = races.find(race => race.raceId === standing.raceId);
+                standing.date = race.date;
+            });
+
+            // Setting dimensions and margins for the chart
+            const width = 1400;
+            const height = 600;
+            const margin = { top: 20, right: 20, bottom: 40, left: 50 };
+
+            // Defining x-scale (time) and y-scale (linear)
+            const x = d3.scaleUtc()
+                .domain(d3.extent(races, d => new Date(d.date)))
+                .range([margin.left, width - margin.right]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(constructorStandings, d => +d.points)]).nice()
+                .range([height - margin.bottom, margin.top]);
+
+            // Define line function for the chart
+            const line = d3.line()
+                .defined(d => !isNaN(d.points))
+                .x(d => x(new Date(d.date)))
+                .y(d => y(+d.points));
+
+            // Defining x-axis and y-axis
+            const xAxis = g => g
+                .attr("transform", `translate(0,${height - margin.bottom})`)
+                .call(d3.axisBottom(x).ticks(width / 80).tickSizeOuter(0));
+
+            const yAxis = g => g
+                .attr("transform", `translate(${margin.left},0)`)
+                .call(d3.axisLeft(y))
+
+
+            // Creating SVG container for the chart
+            const svg = d3.select("body").append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Adding an x-axis and y-axis to the chart
+            svg.append("g")
+                .call(xAxis);
+
+            svg.append("g")
+                .call(yAxis);
+
+            // Group constructor standings by constructorId
+            const constructorData = d3.groups(constructorStandings, d => d.constructorId);
+
+            // Creating color scale for constructors
+            const constructorColor = d3.scaleOrdinal()
+                .domain(constructors.map(d => d.constructorId))
+                .range(d3.schemeCategory10);
+
+            // Creating tooltip for the chart
+            const tooltip = d3.select("#tooltip");
+
+            // Initialising line and circle objects
+            const lines = {};
+            const circles = {};
+
+
+            // Calculating top 10 constructors based on points
+            const topConstructors = constructorStandings
+                .reduce((accumulator, current) => {
+                    accumulator[current.constructorId] = (accumulator[current.constructorId] || 0) + current.points;
+                    return accumulator;
+                }, {})
+
+            const sortedTopConstructors = Object.entries(topConstructors)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .map(([constructorId]) => constructorId);
+
+            const shownConstructorData = constructorData.filter(([constructorId]) => sortedTopConstructors.includes(constructorId));
+
+            // Drawing lines and circles for each constructors' data
+            for (const [constructorId, data] of shownConstructorData) {
+                data.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                // Drawing lines for each constructors' data
+                lines[constructorId] = svg.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", constructorColor(constructorId))
+                    .attr("stroke-width", 1.5)
+                    .attr("d", line);
+
+                // Creating circles for each constructors' data
+                circles[constructorId] = svg.selectAll(`circle-${constructorId}`)
+                    .data(data)
+                    .enter()
+                    .append("circle")
+                    .attr("cx", d => x(new Date(d.date)))
+                    .attr("cy", d => y(+d.points))
+                    .attr("r", 3)
+                    .attr("fill", constructorColor(constructorId))
+                    // Adding tooltip user interaction for circles
+                    .on("mouseover", (event, d) => {
+                        const constructorName = constructors.find(c => c.constructorId === d.constructorId).name;
+                        tooltip.style("display", "block")
+                            .html(`<strong>${constructorName}</strong><br/>Points: ${d.points}<br/>Date: ${d.date}`);
+                    })
+                    .on("mousemove", event => {
+                        tooltip.style("left", (event.pageX + 15) + "px")
+                            .style("top", (event.pageY - 30) + "px");
+                    })
+                    .on("mouseout", () => {
+                        tooltip.style("display", "none");
+                    });
+            }
+
+            // Creating legend for the chart
+            const legendColumns = 4;
+            const legendWidth = 150;
+            const legendHeight = 20;
+
+            let previouslyClickedConstructorId = null;
+            const legend = svg.selectAll(".legend")
+                .data(constructors.filter(d => sortedTopConstructors.includes(d.constructorId)))
+                .enter()
+                .append("g")
+                .attr("class", "legend")
+                .attr("transform", (d, i) => {
+                    const columnIndex = i % legendColumns;
+                    const rowIndex = Math.floor(i / legendColumns);
+                    const x = width - legendColumns * legendWidth + columnIndex * legendWidth;
+                    const y = rowIndex * legendHeight;
+                    return `translate(${x}, ${y})`;
+                })
+                //Adding click interaction for the legend
+                .on("click", (event, d) => {
+                    // Get the ID of the clicked constructor
+                    const clickedConstructorId = d.constructorId;
+
+                    // Show all lines and circles if the same constructor is clicked again
+                    if (clickedConstructorId === previouslyClickedConstructorId) {
+                        for (const [constructorId, line] of Object.entries(lines)) {
+                            const circle = circles[constructorId];
+                            line.classed("hidden", false);
+                            circle.classed("hidden", false);
+                        }
+                        previouslyClickedConstructorId = null;
+                    } else {
+                        // Hide all lines and circles except for the clicked constructor
+                        for (const [constructorId, line] of Object.entries(lines)) {
+                            const circle = circles[constructorId];
+                            if (constructorId !== clickedConstructorId) {
+                                line.classed("hidden", true);
+                                circle.classed("hidden", true);
+                            } else {
+                                line.classed("hidden", false);
+                                circle.classed("hidden", false);
+                            }
+                        }
+                        previouslyClickedConstructorId = clickedConstructorId;
+                    }
+                });
+
+            // Add the legend text
+            svg.append("text")
+                .attr("class", "legend-text")
+                .attr("text-anchor", "middle")
+                .attr("x", width - (width / 4))
+                .attr("y", 80)
+                .text("Click on a above constructor to view its points trend over time");
+
+            // Adding coloured rectangles and constructor names to the legend
+            legend.append("rect")
+                .attr("x", 0)
+                .attr("y", 0)
+                .attr("width", 18)
+                .attr("height", 18)
+                .style("fill", d => constructorColor(d.constructorId));
+
+            legend.append("text")
+                .attr("x", 24)
+                .attr("y", 9)
+                .attr("dy", ".35em")
+                .text(d => d.name);
+
+            // Adding x-axis as label
+            svg.append("text")
+                .attr("class", "x-axis-label")
+                .attr("text-anchor", "middle")
+                .attr("x", width / 2)
+                .attr("y", height - 2)
+                .text("Date");
+
+            // Adding y-axis label
+            svg.append("text")
+                .attr("class", "y-axis-label")
+                .attr("text-anchor", "middle")
+                .attr("transform", `translate(${margin.left / 4}, ${height / 2}) rotate(-90)`)
+                .text("Points");
+        });
+    </script>
+</body>
+
+</html>
