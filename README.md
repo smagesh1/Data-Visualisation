@@ -1,4 +1,6 @@
-# Data Visualisation Coursework - Task Description
+# Data Visualisation
+
+## Data Visualisation Coursework - Task Description
 
 This repository contains my solution for the Data Visualisation coursework module at King's College London.
 
