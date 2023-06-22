@@ -1,9 +1,5 @@
 # Data Visualisation
 
-## Data Visualisation Coursework - Task Description
-
-This repository contains my solution for the Data Visualisation coursework module at King's College London.
-
 ## Task Description
 The aim of the project was to demonstrate understanding of the following areas:
  - Formulate research questions and produce visualizations to get insight into the quetion area to address them.
